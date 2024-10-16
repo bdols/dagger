@@ -16,7 +16,9 @@ concurrency:
     cancel-in-progress: true
 jobs:
     dagger:
-        runs-on: ${{ github.repository == 'dagger/dagger' && 'dagger-g2-v0-13-4-4c' || 'ubuntu-latest' }}
+        runs-on:
+            - depot-ubuntu-24.04-4
+            - dagger-v0.13.5
         permissions:
             contents: read
         name: java
@@ -48,7 +50,7 @@ jobs:
                 # The install.sh script creates path ${prefix_dir}/bin
                 curl -fsS https://dl.dagger.io/dagger/install.sh | BIN_DIR=${prefix_dir}/bin sh
               env:
-                DAGGER_VERSION: v0.13.4
+                DAGGER_VERSION: v0.13.5
               shell: bash
             - name: scripts/warm-engine.sh
               id: warm-engine
@@ -195,7 +197,7 @@ jobs:
                 exit $EXIT_CODE
               env:
                 _EXPERIMENTAL_DAGGER_CLOUD_TOKEN: dag_dagger_sBIv6DsjNerWvTqt2bSFeigBUqWxp9bhh3ONSSgeFnw
-                COMMAND: dagger call -q --ref="$GITHUB_REF" --docker-cfg=file:$HOME/.docker/config.json check --targets=sdk/java
+                COMMAND: dagger call -q --ref="$GITHUB_REF" check --targets=sdk/java
                 DAGGER_CLOUD_TOKEN: dag_dagger_sBIv6DsjNerWvTqt2bSFeigBUqWxp9bhh3ONSSgeFnw
                 GITHUB_REF: ${{ github.github_ref }}
               shell: bash

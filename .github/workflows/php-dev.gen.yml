@@ -16,7 +16,9 @@ concurrency:
     cancel-in-progress: true
 jobs:
     dagger:
-        runs-on: ${{ github.repository == 'dagger/dagger' && 'dagger-g2-v0-13-4-8c-dind' || 'ubuntu-latest' }}
+        runs-on:
+            - depot-ubuntu-24.04-4
+            - dagger-v0.13.5
         permissions:
             contents: read
         name: php-dev
@@ -238,7 +240,7 @@ jobs:
                 exit $EXIT_CODE
               env:
                 _EXPERIMENTAL_DAGGER_CLOUD_TOKEN: dag_dagger_sBIv6DsjNerWvTqt2bSFeigBUqWxp9bhh3ONSSgeFnw
-                COMMAND: dagger call -q --ref="$GITHUB_REF" --docker-cfg=file:$HOME/.docker/config.json check --targets=sdk/php
+                COMMAND: dagger call -q --ref="$GITHUB_REF" check --targets=sdk/php
                 DAGGER_CLOUD_TOKEN: dag_dagger_sBIv6DsjNerWvTqt2bSFeigBUqWxp9bhh3ONSSgeFnw
                 GITHUB_REF: ${{ github.github_ref }}
               shell: bash

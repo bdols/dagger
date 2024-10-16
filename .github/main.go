@@ -9,9 +9,10 @@ import (
 )
 
 const (
-	daggerVersion      = "v0.13.4"
+	daggerVersion      = "v0.13.5"
 	upstreamRepository = "dagger/dagger"
 	defaultRunner      = "ubuntu-latest"
+	daggerCloudToken   = "dag_dagger_sBIv6DsjNerWvTqt2bSFeigBUqWxp9bhh3ONSSgeFnw"
 )
 
 type CI struct {
@@ -27,21 +28,56 @@ func New(
 	repository *dagger.Directory,
 ) *CI {
 	ci := new(CI)
+
 	ci.Gha = dag.Gha(dagger.GhaOpts{
 		DaggerVersion: daggerVersion,
-		PublicToken:   "dag_dagger_sBIv6DsjNerWvTqt2bSFeigBUqWxp9bhh3ONSSgeFnw",
-		Runner:        ci.BronzeRunner(false),
+		PublicToken:   daggerCloudToken,
 		Repository:    repository,
 	})
+
+	return ci
+}
+
+// Configure all pipelines with Dagger Runners
+func (ci *CI) DaggerRunners() *CI {
+	runner := []string{ci.SilverRunner(true)}
 	return ci.
-		WithPipeline("Docs", "docs lint", "", false).
-		WithSdkPipelines("python").
-		WithSdkPipelines("typescript").
-		WithSdkPipelines("go").
-		WithSdkPipelines("java").
-		WithSdkPipelines("elixir").
-		WithSdkPipelines("rust").
-		WithSdkPipelines("php")
+		WithPipeline("Docs", "docs lint", nil, false).
+		WithPipeline("python", "check --targets=sdk/python", nil, false).
+		WithPipeline("python-dev", "check --targets=sdk/python", runner, true).
+		WithPipeline("typescript", "check --targets=sdk/typescript", nil, false).
+		WithPipeline("typescript-dev", "check --targets=sdk/typescript", runner, true).
+		WithPipeline("go", "check --targets=sdk/go", nil, false).
+		WithPipeline("go-dev", "check --targets=sdk/go", runner, true).
+		WithPipeline("java", "check --targets=sdk/java", nil, false).
+		WithPipeline("java-dev", "check --targets=sdk/java", runner, true).
+		WithPipeline("elixir", "check --targets=sdk/elixir", nil, false).
+		WithPipeline("elixir-dev", "check --targets=sdk/elixir", runner, true).
+		WithPipeline("rust", "check --targets=sdk/rust", nil, false).
+		WithPipeline("rust-dev", "check --targets=sdk/rust", runner, true).
+		WithPipeline("php", "check --targets=sdk/php", nil, false).
+		WithPipeline("php-dev", "check --targets=sdk/php", runner, true)
+}
+
+// Configure all pipelines with Depot Runners
+func (ci *CI) DepotRunners() *CI {
+	runner := []string{"depot-ubuntu-24.04-4", "dagger-v0.13.5"}
+	return ci.
+		WithPipeline("Docs", "docs lint", runner, false).
+		WithPipeline("python", "check --targets=sdk/python", runner, false).
+		WithPipeline("python-dev", "check --targets=sdk/python", runner, true).
+		WithPipeline("typescript", "check --targets=sdk/typescript", runner, false).
+		WithPipeline("typescript-dev", "check --targets=sdk/typescript", runner, true).
+		WithPipeline("go", "check --targets=sdk/go", runner, false).
+		WithPipeline("go-dev", "check --targets=sdk/go", runner, true).
+		WithPipeline("java", "check --targets=sdk/java", runner, false).
+		WithPipeline("java-dev", "check --targets=sdk/java", runner, true).
+		WithPipeline("elixir", "check --targets=sdk/elixir", runner, false).
+		WithPipeline("elixir-dev", "check --targets=sdk/elixir", runner, true).
+		WithPipeline("rust", "check --targets=sdk/rust", runner, false).
+		WithPipeline("rust-dev", "check --targets=sdk/rust", runner, true).
+		WithPipeline("php", "check --targets=sdk/php", runner, false).
+		WithPipeline("php-dev", "check --targets=sdk/php", runner, true)
 }
 
 // Add a pipeline with our project-specific defaults
@@ -50,8 +86,9 @@ func (ci *CI) WithPipeline(
 	name string,
 	// Pipeline command
 	command string,
+	// Runner to use
 	// +optional
-	runner string,
+	runner []string,
 	// Build the local engine source, and run the pipeline with it
 	// +optional
 	devEngine bool,
@@ -66,7 +103,9 @@ func (ci *CI) WithPipeline(
 		TimeoutMinutes:              10,
 		Permissions:                 []dagger.GhaPermission{dagger.ReadContents},
 	}
-	if runner != "" {
+	if runner == nil {
+		opts.Runner = []string{ci.BronzeRunner(false)}
+	} else {
 		opts.Runner = runner
 	}
 	if devEngine {
@@ -74,25 +113,9 @@ func (ci *CI) WithPipeline(
 	} else {
 		opts.DaggerVersion = daggerVersion
 	}
-	command = fmt.Sprintf("--ref=\"$GITHUB_REF\" --docker-cfg=file:$HOME/.docker/config.json %s", command)
+	command = fmt.Sprintf("--ref=\"$GITHUB_REF\" %s", command)
 	ci.Gha = ci.Gha.WithPipeline(name, command, opts)
 	return ci
-}
-
-func (ci *CI) WithSdkPipelines(sdk string) *CI {
-	return ci.
-		WithPipeline(
-			sdk,
-			"check --targets=sdk/"+sdk,
-			"",
-			false,
-		).
-		WithPipeline(
-			sdk+"-dev",
-			"check --targets=sdk/"+sdk,
-			ci.SilverRunner(true),
-			true,
-		)
 }
 
 // Assemble a runner name for a pipeline
@@ -101,7 +124,6 @@ func (ci *CI) Runner(
 	daggerVersion string,
 	cpus int,
 	singleTenant bool,
-	noSpot bool,
 	dind bool,
 ) string {
 	runner := fmt.Sprintf(
@@ -115,10 +137,7 @@ func (ci *CI) Runner(
 	if singleTenant {
 		runner += "-st"
 	}
-	if noSpot {
-		// "on demand instances" are the opposite of spot instances in AWS jargon
-		runner += "-od"
-	}
+
 	// Fall back to default runner if repository is not upstream
 	// (this is GHA DSL and will be evaluated by the GHA runner)
 	return fmt.Sprintf(
@@ -129,40 +148,40 @@ func (ci *CI) Runner(
 	)
 }
 
-// Bronze runner: Multi-tenant spot instance, 4 cpu
+// Bronze runner: Multi-tenant instance, 4 cpu
 func (ci *CI) BronzeRunner(
 	// Enable docker-in-docker
 	// +optional
 	dind bool,
 ) string {
-	return ci.Runner(2, daggerVersion, 4, false, false, dind)
+	return ci.Runner(2, daggerVersion, 4, false, dind)
 }
 
-// Silver runner: Multi-tenant spot instance, 8 cpu
+// Silver runner: Multi-tenant instance, 8 cpu
 func (ci *CI) SilverRunner(
 	// Enable docker-in-docker
 	// +optional
 	dind bool,
 ) string {
-	return ci.Runner(2, daggerVersion, 8, false, false, dind)
+	return ci.Runner(2, daggerVersion, 8, false, dind)
 }
 
-// Gold runner: Single-tenant on-demand instance, 16 cpu
+// Gold runner: Single-tenant instance, 16 cpu
 func (ci *CI) GoldRunner(
 	// Enable docker-in-docker
 	// +optional
 	dind bool,
 ) string {
-	return ci.Runner(2, daggerVersion, 16, true, true, dind)
+	return ci.Runner(2, daggerVersion, 16, true, dind)
 }
 
-// Platinum runner: Single-tenant on-demand instance, 32 cpu
+// Platinum runner: Single-tenant instance, 32 cpu
 func (ci *CI) PlatinumRunner(
 	// Enable docker-in-docker
 	// +optional
 	dind bool,
 ) string {
-	return ci.Runner(2, daggerVersion, 32, true, true, dind)
+	return ci.Runner(2, daggerVersion, 32, true, dind)
 }
 
 // Generate Github Actions pipelines to call our Dagger pipelines
