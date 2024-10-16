@@ -244,7 +244,7 @@ jobs:
                 DAGGER_CLOUD_TOKEN: dag_dagger_sBIv6DsjNerWvTqt2bSFeigBUqWxp9bhh3ONSSgeFnw
                 GITHUB_REF: ${{ github.github_ref }}
               shell: bash
-        timeout-minutes: 10
+        timeout-minutes: 15
         outputs:
             stderr: ${{ steps.exec.outputs.stderr }}
             stdout: ${{ steps.exec.outputs.stdout }}

@@ -100,7 +100,7 @@ func (ci *CI) WithPipeline(
 		OnPullRequestSynchronize:    true,
 		OnPullRequestReadyForReview: true,
 		PullRequestConcurrency:      "preempt",
-		TimeoutMinutes:              10,
+		TimeoutMinutes:              15,
 		Permissions:                 []dagger.GhaPermission{dagger.ReadContents},
 	}
 	if runner == nil {
