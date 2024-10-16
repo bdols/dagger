@@ -113,7 +113,7 @@ func (ci *CI) WithPipeline(
 	} else {
 		opts.DaggerVersion = daggerVersion
 	}
-	command = fmt.Sprintf("--ref=\"$GITHUB_REF\" %s", command)
+	command = fmt.Sprintf("--ref=\"$GITHUB_REF\" --docker-cfg=file:$HOME/.docker/config.json %s", command)
 	ci.Gha = ci.Gha.WithPipeline(name, command, opts)
 	return ci
 }

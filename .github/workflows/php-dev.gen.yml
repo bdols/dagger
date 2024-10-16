@@ -25,6 +25,21 @@ jobs:
         steps:
             - name: Checkout
               uses: actions/checkout@v4
+            - name: scripts/registry-auth.sh
+              id: registry-auth
+              run: |
+                #!/bin/bash
+
+                set -o pipefail
+
+                echo "$REGISTRY_PASSWORD" | docker login \
+                  --username "$REGISTRY_USERNAME" --password-stdin  \
+                  "$REGISTRY_SERVER"
+              env:
+                REGISTRY_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+                REGISTRY_SERVER: ${{ vars.DOCKERHUB_SERVER }}
+                REGISTRY_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+              shell: bash
             - name: scripts/install-dagger.sh
               id: install-dagger
               run: |
@@ -240,7 +255,7 @@ jobs:
                 exit $EXIT_CODE
               env:
                 _EXPERIMENTAL_DAGGER_CLOUD_TOKEN: dag_dagger_sBIv6DsjNerWvTqt2bSFeigBUqWxp9bhh3ONSSgeFnw
-                COMMAND: dagger call -q --ref="$GITHUB_REF" check --targets=sdk/php
+                COMMAND: dagger call -q --ref="$GITHUB_REF" --docker-cfg=file:$HOME/.docker/config.json check --targets=sdk/php
                 DAGGER_CLOUD_TOKEN: dag_dagger_sBIv6DsjNerWvTqt2bSFeigBUqWxp9bhh3ONSSgeFnw
                 GITHUB_REF: ${{ github.github_ref }}
               shell: bash
