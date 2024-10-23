@@ -16,9 +16,8 @@ concurrency:
     cancel-in-progress: true
 jobs:
     dagger:
-        runs-on:
-            - depot-ubuntu-24.04-4
-            - dagger-v0.13.5
+        runs-on: 
+            - depot-ubuntu-22.04-4,dagger=0.13.5
         permissions:
             contents: read
         name: elixir
