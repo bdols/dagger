@@ -90,6 +90,7 @@ type DispatchInput struct {
 type Job struct {
 	RunsOn         []string          `json:"runs-on" yaml:"runs-on"`
 	Permissions    *JobPermissions   `json:"permissions,omitempty" yaml:"permissions,omitempty"`
+	RunIf          string            `json:"if,omitempty" yaml:"if,omitempty"`
 	Name           string            `json:"name" yaml:"name"`
 	Needs          []string          `json:"needs,omitempty" yaml:"needs,omitempty"`
 	Steps          []JobStep         `json:"steps" yaml:"steps"`

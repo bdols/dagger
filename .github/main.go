@@ -3,15 +3,15 @@ package main
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/dagger/dagger/.github/internal/dagger"
 )
 
 const (
-	daggerVersion      = "v0.13.6"
-	upstreamRepository = "dagger/dagger"
-	defaultRunner      = "ubuntu-latest"
+	daggerVersion                       = "v0.13.6"
+	daggerCloudToken                    = "dag_dagger_sBIv6DsjNerWvTqt2bSFeigBUqWxp9bhh3ONSSgeFnw"
+	publicRunner                        = "ubuntu-latest"
+	repositoryWithAccessToCustomRunners = "dagger/dagger"
 )
 
 type CI struct {
@@ -27,48 +27,86 @@ func New(
 	repository *dagger.Directory,
 ) *CI {
 	ci := new(CI)
+
 	ci.Gha = dag.Gha(dagger.GhaOpts{
 		DaggerVersion: daggerVersion,
-		PublicToken:   "dag_dagger_sBIv6DsjNerWvTqt2bSFeigBUqWxp9bhh3ONSSgeFnw",
-		Runner:        []string{ci.BronzeRunner(false)},
+		PublicToken:   daggerCloudToken,
 		Repository:    repository,
 	})
-	return ci.
-		WithPipeline("Docs", "docs lint", nil, false).
-		WithSdkPipelines("python").
-		WithSdkPipelines("typescript").
-		WithSdkPipelines("go").
-		WithSdkPipelines("java").
-		WithSdkPipelines("elixir").
-		WithSdkPipelines("rust").
-		WithSdkPipelines("php")
+
+	return ci
 }
 
-// Add a pipeline with our project-specific defaults
-func (ci *CI) WithPipeline(
-	// Pipeline name
-	name string,
-	// Pipeline command
-	command string,
-	// +optional
-	runner []string,
-	// Build the local engine source, and run the pipeline with it
-	// +optional
-	devEngine bool,
-) *CI {
-	opts := dagger.GhaWithPipelineOpts{
+// Configure Workflows
+func (ci *CI) Workflows() *CI {
+	return ci.
+		onDaggerRunners().
+		onDepotRunners().
+		onNamespaceRunners()
+}
+
+func (ci *CI) onDaggerRunners() *CI {
+	workflowOpts := dagger.GhaWithPipelineOpts{
 		OnPushBranches:              []string{"main"},
 		OnPullRequestOpened:         true,
 		OnPullRequestReopened:       true,
 		OnPullRequestSynchronize:    true,
 		OnPullRequestReadyForReview: true,
 		PullRequestConcurrency:      "preempt",
-		TimeoutMinutes:              10,
 		Permissions:                 []dagger.GhaPermission{dagger.ReadContents},
 	}
-	if len(runner) != 0 {
-		opts.Runner = runner
+	return ci.withRunner(NewDaggerRunner(daggerVersion), workflowOpts)
+}
+
+func (ci *CI) onDepotRunners() *CI {
+	workflowOpts := dagger.GhaWithPipelineOpts{
+		OnSchedule:             []string{"6 0 * * *"},
+		PullRequestConcurrency: "preempt",
+		Permissions:            []dagger.GhaPermission{dagger.ReadContents},
+		RunIf:                  fmt.Sprintf("${{ github.repository == '%s' }}", repositoryWithAccessToCustomRunners),
 	}
+	return ci.withRunner(NewDepotRunner(daggerVersion), workflowOpts)
+}
+
+func (ci *CI) onNamespaceRunners() *CI {
+	workflowOpts := dagger.GhaWithPipelineOpts{
+		OnSchedule:             []string{"6 0 * * *"},
+		PullRequestConcurrency: "preempt",
+		Permissions:            []dagger.GhaPermission{dagger.ReadContents},
+		RunIf:                  fmt.Sprintf("${{ github.repository == '%s' }}", repositoryWithAccessToCustomRunners),
+	}
+	return ci.withRunner(NewNamespaceRunner(daggerVersion), workflowOpts)
+}
+
+func (ci *CI) withRunner(runner Runner, opts dagger.GhaWithPipelineOpts) *CI {
+	return ci.
+		workflow(runner.Pipeline("docs"), "docs lint", runner.Medium().Cached().RunsOn(), false, 10, opts).
+		workflow(runner.Pipeline("sdk-python"), "check --targets=sdk/python", runner.Medium().Cached().RunsOn(), false, 10, opts).
+		workflow(runner.Pipeline("sdk-python-dev"), "check --targets=sdk/python", runner.Large().DaggerInDocker().RunsOn(), true, 10, opts).
+		workflow(runner.Pipeline("sdk-typescript"), "check --targets=sdk/typescript", runner.Medium().Cached().RunsOn(), false, 10, opts).
+		workflow(runner.Pipeline("sdk-typescript-dev"), "check --targets=sdk/typescript", runner.Large().DaggerInDocker().RunsOn(), true, 10, opts).
+		workflow(runner.Pipeline("sdk-go"), "check --targets=sdk/go", runner.Medium().Cached().RunsOn(), false, 10, opts).
+		workflow(runner.Pipeline("sdk-go-dev"), "check --targets=sdk/go", runner.Large().DaggerInDocker().RunsOn(), true, 10, opts).
+		workflow(runner.Pipeline("sdk-java"), "check --targets=sdk/java", runner.Medium().Cached().RunsOn(), false, 10, opts).
+		workflow(runner.Pipeline("sdk-java-dev"), "check --targets=sdk/java", runner.Large().DaggerInDocker().RunsOn(), true, 10, opts).
+		workflow(runner.Pipeline("sdk-elixir"), "check --targets=sdk/elixir", runner.XLarge().Cached().RunsOn(), false, 10, opts).
+		workflow(runner.Pipeline("sdk-elixir-dev"), "check --targets=sdk/elixir", runner.XLarge().DaggerInDocker().RunsOn(), true, 10, opts).
+		workflow(runner.Pipeline("sdk-rust"), "check --targets=sdk/rust", runner.XLarge().Cached().RunsOn(), false, 15, opts).
+		workflow(runner.Pipeline("sdk-rust-dev"), "check --targets=sdk/rust", runner.XLarge().DaggerInDocker().RunsOn(), true, 15, opts).
+		workflow(runner.Pipeline("sdk-php"), "check --targets=sdk/php", runner.Medium().Cached().RunsOn(), false, 10, opts).
+		workflow(runner.Pipeline("sdk-php-dev"), "check --targets=sdk/php", runner.Medium().DaggerInDocker().RunsOn(), true, 10, opts)
+}
+
+func (ci *CI) workflow(
+	name string,
+	command string,
+	runner []string,
+	devEngine bool,
+	timeout int,
+	opts dagger.GhaWithPipelineOpts,
+) *CI {
+	opts.Runner = runner
+	opts.TimeoutMinutes = timeout
 	if devEngine {
 		opts.DaggerVersion = "."
 	} else {
@@ -77,88 +115,6 @@ func (ci *CI) WithPipeline(
 	command = fmt.Sprintf("--docker-cfg=file:$HOME/.docker/config.json %s", command)
 	ci.Gha = ci.Gha.WithPipeline(name, command, opts)
 	return ci
-}
-
-func (ci *CI) WithSdkPipelines(sdk string) *CI {
-	return ci.
-		WithPipeline(
-			sdk,
-			"check --targets=sdk/"+sdk,
-			nil,
-			false,
-		).
-		WithPipeline(
-			sdk+"-dev",
-			"check --targets=sdk/"+sdk,
-			[]string{ci.SilverRunner(true)},
-			true,
-		)
-}
-
-// Assemble a runner name for a pipeline
-func (ci *CI) Runner(
-	generation int,
-	daggerVersion string,
-	cpus int,
-	singleTenant bool,
-	dind bool,
-) string {
-	runner := fmt.Sprintf(
-		"dagger-g%d-%s-%dc",
-		generation,
-		strings.ReplaceAll(daggerVersion, ".", "-"),
-		cpus)
-	if dind {
-		runner += "-dind"
-	}
-	if singleTenant {
-		runner += "-st"
-	}
-
-	// Fall back to default runner if repository is not upstream
-	// (this is GHA DSL and will be evaluated by the GHA runner)
-	return fmt.Sprintf(
-		"${{ github.repository == '%s' && '%s' || '%s' }}",
-		upstreamRepository,
-		runner,
-		defaultRunner,
-	)
-}
-
-// Bronze runner: Multi-tenant instance, 4 cpu
-func (ci *CI) BronzeRunner(
-	// Enable docker-in-docker
-	// +optional
-	dind bool,
-) string {
-	return ci.Runner(2, daggerVersion, 4, false, dind)
-}
-
-// Silver runner: Multi-tenant instance, 8 cpu
-func (ci *CI) SilverRunner(
-	// Enable docker-in-docker
-	// +optional
-	dind bool,
-) string {
-	return ci.Runner(2, daggerVersion, 8, false, dind)
-}
-
-// Gold runner: Single-tenant instance, 16 cpu
-func (ci *CI) GoldRunner(
-	// Enable docker-in-docker
-	// +optional
-	dind bool,
-) string {
-	return ci.Runner(2, daggerVersion, 16, true, dind)
-}
-
-// Platinum runner: Single-tenant instance, 32 cpu
-func (ci *CI) PlatinumRunner(
-	// Enable docker-in-docker
-	// +optional
-	dind bool,
-) string {
-	return ci.Runner(2, daggerVersion, 32, true, dind)
 }
 
 // Generate Github Actions pipelines to call our Dagger pipelines

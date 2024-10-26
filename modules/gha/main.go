@@ -93,6 +93,7 @@ type Settings struct {
 	Repository             *dagger.Directory
 	TimeoutMinutes         int
 	Permissions            Permissions
+	RunIf                  string
 }
 
 // Validate a Github Actions configuration (best effort)
@@ -229,6 +230,9 @@ func (m *Gha) WithPipeline(
 	// Permissions to grant the pipeline
 	// +optional
 	permissions Permissions,
+	// Determines when this pipeline should run
+	// +optional
+	runIf string,
 	// Run the pipeline on any issue comment activity
 	// +optional
 	onIssueComment bool,
@@ -326,6 +330,9 @@ func (m *Gha) WithPipeline(
 	}
 	if permissions != nil {
 		p.Settings.Permissions = permissions
+	}
+	if runIf != "" {
+		p.Settings.RunIf = runIf
 	}
 	if debug {
 		p.Settings.Debug = debug
@@ -602,6 +609,7 @@ func (p *Pipeline) asWorkflow() Workflow {
 	var steps []JobStep
 	// FIXME: make checkout configurable
 	steps = append(steps, p.checkoutStep())
+	steps = append(steps, p.dockerhubAuthStep()...)
 	steps = append(steps, p.installDaggerSteps()...)
 	steps = append(steps, p.warmEngineStep(), p.callDaggerStep())
 	if p.Settings.StopEngine {
@@ -617,6 +625,7 @@ func (p *Pipeline) asWorkflow() Workflow {
 				Name:           p.Name,
 				RunsOn:         p.Settings.Runner,
 				Permissions:    p.JobPermissions(),
+				RunIf:          p.Settings.RunIf,
 				Steps:          steps,
 				TimeoutMinutes: p.Settings.TimeoutMinutes,
 				Outputs: map[string]string{
@@ -672,6 +681,16 @@ func (p *Pipeline) checkoutStep() JobStep {
 
 func (p *Pipeline) warmEngineStep() JobStep {
 	return p.bashStep("warm-engine", nil)
+}
+
+func (p *Pipeline) dockerhubAuthStep() []JobStep {
+	return []JobStep{
+		p.bashStep("dockerhub-auth", map[string]string{
+			"DOCKERHUB_USERNAME": "${{ vars.DOCKERHUB_USERNAME }}",
+			"DOCKERHUB_PASSWORD": "${{ secrets.DOCKERHUB_PASSWORD }}",
+			"DOCKERHUB_SERVER":   "${{ vars.DOCKERHUB_SERVER }}",
+		}),
+	}
 }
 
 func (p *Pipeline) installDaggerSteps() []JobStep {

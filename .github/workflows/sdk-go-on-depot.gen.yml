@@ -1,15 +1,8 @@
 # This file was generated. See https://daggerverse.dev/mod/github.com/dagger/dagger/modules/gha
-name: docs
+name: sdk-go-on-depot
 "on":
-    push:
-        branches:
-            - main
-    pull_request:
-        types:
-            - opened
-            - reopened
-            - synchronize
-            - ready_for_review
+    schedule:
+        - cron: 6 0 * * *
     workflow_dispatch: {}
 concurrency:
     group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -17,10 +10,11 @@ concurrency:
 jobs:
     dagger:
         runs-on:
-            - ${{ github.repository == 'dagger/dagger' && 'dagger-g2-v0-13-6-4c' || 'ubuntu-latest' }}
+            - depot-ubuntu-24.04-4,dagger=0.13.6
         permissions:
             contents: read
-        name: docs
+        if: ${{ github.repository == 'dagger/dagger' }}
+        name: sdk-go-on-depot
         steps:
             - name: Checkout
               uses: actions/checkout@v4
@@ -214,7 +208,7 @@ jobs:
                 exit $EXIT_CODE
               env:
                 _EXPERIMENTAL_DAGGER_CLOUD_TOKEN: dag_dagger_sBIv6DsjNerWvTqt2bSFeigBUqWxp9bhh3ONSSgeFnw
-                COMMAND: dagger call -q --docker-cfg=file:$HOME/.docker/config.json docs lint
+                COMMAND: dagger call -q --docker-cfg=file:$HOME/.docker/config.json check --targets=sdk/go
                 DAGGER_CLOUD_TOKEN: dag_dagger_sBIv6DsjNerWvTqt2bSFeigBUqWxp9bhh3ONSSgeFnw
               shell: bash
         timeout-minutes: 10

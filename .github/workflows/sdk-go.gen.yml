@@ -1,5 +1,5 @@
 # This file was generated. See https://daggerverse.dev/mod/github.com/dagger/dagger/modules/gha
-name: docs
+name: sdk-go
 "on":
     push:
         branches:
@@ -20,7 +20,7 @@ jobs:
             - ${{ github.repository == 'dagger/dagger' && 'dagger-g2-v0-13-6-4c' || 'ubuntu-latest' }}
         permissions:
             contents: read
-        name: docs
+        name: sdk-go
         steps:
             - name: Checkout
               uses: actions/checkout@v4
@@ -214,7 +214,7 @@ jobs:
                 exit $EXIT_CODE
               env:
                 _EXPERIMENTAL_DAGGER_CLOUD_TOKEN: dag_dagger_sBIv6DsjNerWvTqt2bSFeigBUqWxp9bhh3ONSSgeFnw
-                COMMAND: dagger call -q --docker-cfg=file:$HOME/.docker/config.json docs lint
+                COMMAND: dagger call -q --docker-cfg=file:$HOME/.docker/config.json check --targets=sdk/go
                 DAGGER_CLOUD_TOKEN: dag_dagger_sBIv6DsjNerWvTqt2bSFeigBUqWxp9bhh3ONSSgeFnw
               shell: bash
         timeout-minutes: 10
