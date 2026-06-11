@@ -190,10 +190,10 @@
   resolved "https://registry.yarnpkg.com/@graphql-typed-document-node/core/-/core-3.2.0.tgz#5f3d96ec6b2354ad6d8a28bf216a1d97b5426861"
   integrity sha512-mB9oAsNCm9aM3/SOv4YtBMqZbYj10R7dkq8byBqxGY/ncFwhf2oQzMV+LCRlWoDSEBJ3COiR1yeDvMtsoOsuFQ==
 
-"@grpc/grpc-js@^1.11.1", "@grpc/grpc-js@^1.7.1":
-  version "1.11.1"
-  resolved "https://registry.yarnpkg.com/@grpc/grpc-js/-/grpc-js-1.11.1.tgz#a92f33e98f1959feffcd1b25a33b113d2c977b70"
-  integrity sha512-gyt/WayZrVPH2w/UTLansS7F9Nwld472JxxaETamrM8HNlsa+jSLNyKAZmhxI2Me4c3mQHFiS1wWHDY1g1Kthw==
+"@grpc/grpc-js@^1.11.4", "@grpc/grpc-js@^1.7.1":
+  version "1.11.4"
+  resolved "https://registry.yarnpkg.com/@grpc/grpc-js/-/grpc-js-1.11.4.tgz#001b43aa3dae98721564456106225dad218fe9cd"
+  integrity sha512-ca9hn7kfwbJssq1TTjE6CiCnfpESHl600mVQsmaTVEQD8kD14UmCsx4rkfuWYncIvTBUbEJb3agQGkYh65VGKA==
   dependencies:
     "@grpc/proto-loader" "^0.7.13"
     "@js-sdsl/ordered-map" "^4.4.2"
